@@ -111,6 +111,7 @@
 <header>
   <div class="logo">🏁 PIT<span class="red">WALL</span></div>
   <div class="meta" id="model">—</div>
+  <div class="meta" title="The Claude Code CLI runs INSIDE each session's microVM; every Bash/Write/Edit tool call and the model call to Bedrock happen from within the sandbox, not on the host.">agent: <b>Claude Code</b> · in the MicroVM</div>
   <div class="vm"><span class="dot" id="vmdot"></span><span id="vmtext">microVM: idle</span> <code id="vmendpoint"></code></div>
 </header>
 
@@ -214,22 +215,26 @@ function ask() {
   });
 
   // A tool call about to run inside the microVM. Show the command / file we're
-  // about to Bash or Write — that's the "coding agent working" moment.
+  // about to Bash or Write — that's the "coding agent working" moment. Each
+  // label makes the actor explicit: Claude Code (running INSIDE the VM) invoked
+  // its own tool, from inside the sandbox — not the host.
   es.addEventListener("tool_use", e => {
     const d = JSON.parse(e.data);
     const name = d.name || "tool";
     const inp = d.input || {};
     let body = "";
-    let label = name;
-    if (name === "Bash") { body = inp.command || ""; label = "Bash — in the MicroVM"; }
+    let sublabel = name;
+    if (name === "Bash") { body = inp.command || ""; sublabel = "Bash"; }
     else if (name === "Write" || name === "Edit") {
       body = (inp.content || inp.new_string || "");
-      label = `${name} ${inp.file_path || ""} — in the MicroVM`;
-    } else if (name === "Read") { body = ""; label = `Read ${inp.file_path || ""}`; }
-    else { body = JSON.stringify(inp, null, 2); }
+      sublabel = `${name} ${inp.file_path || ""}`;
+    } else if (name === "Read") { body = ""; sublabel = `Read ${inp.file_path || ""}`; }
+    else { body = JSON.stringify(inp, null, 2); sublabel = name; }
 
     const t = el("telemetry");
-    t.appendChild(el("tab", `<span>▸ ${label}</span><span>telemetry</span>`));
+    t.appendChild(el("tab",
+      `<span>▸ <b>Claude Code</b> · ${sublabel}</span><span>tool call in the MicroVM</span>`
+    ));
     if (body) {
       const pre = el("pre code"); pre.classList.add("code"); pre.textContent = body;
       t.appendChild(pre);
@@ -243,7 +248,7 @@ function ask() {
     const r = JSON.parse(e.data);
     const wrap = el("result");
     const badge = r.is_error ? '<span class="badge err">err</span>' : '<span class="badge ok">ok</span>';
-    wrap.appendChild(el("tab", `<span>result</span>${badge}`));
+    wrap.appendChild(el("tab", `<span>tool result → <b>Claude Code</b></span>${badge}`));
     const pre = document.createElement("pre");
     pre.textContent = (r.content || "").trim() || "(no output)";
     wrap.appendChild(pre);

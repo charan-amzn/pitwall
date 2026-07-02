@@ -176,6 +176,21 @@ render inline, and the engineer "radios back" the readout. The server launches
 one MicroVM on the first question and terminates it on shutdown (Ctrl-C). Set
 `PITWALL_WEB_HOST` / `PITWALL_WEB_PORT` to change the bind address.
 
+### What it looks like
+
+*"Plot Hamilton's lap times in Austrian GP"* — the header shows the model, the
+`agent: Claude Code · in the MicroVM` chip, and the live MicroVM state; each
+tool call is tagged as **Claude Code · Bash** or **Claude Code · Write**, so
+it's clear the coding agent (not the host) is what's running each step
+*inside* the sandbox:
+
+![Pitwall — Claude Code running tool calls inside the MicroVM](docs/images/web-tool-trace.png)
+
+Charts render inline as artifacts stream back from the VM, followed by the
+race-engineer readout:
+
+![Pitwall — chart artifact + race-engineer readout](docs/images/web-chart-answer.png)
+
 ## Things to ask
 
 The dataset covers whichever races have run this season, so these always work:

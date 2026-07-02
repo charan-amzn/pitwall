@@ -66,16 +66,22 @@ def _red(t: str) -> str:
 
 
 def _fmt_tool_call(name: str, inputs: dict) -> str:
-    """One-line summary of a tool call — the argument that matters, truncated."""
+    """One-line summary of a tool call — the argument that matters, truncated.
+
+    Prefixed with ``Claude Code ·`` so the trace makes clear that the *agent
+    itself* (Claude Code, running inside the MicroVM) is what's invoking each
+    tool — not the host process.
+    """
+    prefix = "Claude Code · "
     if name == "Bash":
         cmd = str(inputs.get("command", "")).strip().replace("\n", " ")
-        return f"{name}  ▸ {cmd[:200]}"
+        return f"{prefix}{name}  ▸ {cmd[:200]}"
     if name in ("Write", "Edit"):
         path = str(inputs.get("file_path", ""))
-        return f"{name}  ▸ {path}"
+        return f"{prefix}{name}  ▸ {path}"
     if name == "Read":
-        return f"{name}  ▸ {inputs.get('file_path', '')}"
-    return name
+        return f"{prefix}{name}  ▸ {inputs.get('file_path', '')}"
+    return f"{prefix}{name}"
 
 
 def _make_events(show_code: bool) -> TurnEvents:
@@ -164,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
 
     banner = (
         f"{_bold('🏁 Pitwall')} — F1 race-engineer data lab  "
-        f"{_dim(f'[model: bedrock:{_model_label()}  sandbox: {sandbox.name}]')}"
+        f"{_dim(f'[agent: Claude Code in the MicroVM · model: bedrock:{_model_label()} · sandbox: {sandbox.name}]')}"
     )
 
     try:
