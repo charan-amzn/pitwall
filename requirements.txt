@@ -1,0 +1,9 @@
+# Pitwall host (CLI) dependencies. See pyproject.toml for the authoritative list;
+# `pip install -e .` is the recommended install.
+#
+# The coding agent (Claude Code CLI) and analysis libraries (pandas/matplotlib)
+# run INSIDE the MicroVM. The host process is a thin proxy that launches the VM
+# and streams events back — so it needs no LLM SDK on the host at all.
+
+boto3>=1.34                # drives the lambda-microvms API (CLI driver also supported)
+python-dotenv>=1.0         # auto-load a local .env

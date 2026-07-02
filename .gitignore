@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.eggs/
+build/
+dist/
+
+# Pitwall runtime artifacts
+pitwall_artifacts/
+pitwall_data/
+*.log
+
+# Secrets / local config — never commit (.env.example is the template)
+.env
+.env.local
+.env.*.local
+
+# Built MicroVM artifacts
+microvm_image/data/
+microvm_image/*.zip
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

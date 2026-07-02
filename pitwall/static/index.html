@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🏁 Pitwall — F1 Race-Engineer Data Lab</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #121823;
+    --panel-2: #0e131c;
+    --line: #1f2a3a;
+    --ink: #e6edf3;
+    --dim: #8b9bb0;
+    --accent: #00e0c6;     /* timing-screen teal */
+    --hot: #ff1e1e;        /* F1 red */
+    --amber: #ffb000;
+    --green: #21d07a;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--mono); font-size: 14px; line-height: 1.5;
+  }
+  /* ---- top status strip (pit-wall pylon) ---- */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 16px; background: linear-gradient(180deg, #131b27, #0c1118);
+    border-bottom: 2px solid var(--line);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo { font-weight: 700; letter-spacing: .5px; font-size: 16px; }
+  .logo .red { color: var(--hot); }
+  .meta { color: var(--dim); font-size: 12px; }
+  .vm {
+    margin-left: auto; display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--panel-2); font-size: 12px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .dot.launching { background: var(--amber); animation: pulse 1s infinite; }
+  .dot.running, .dot.ready { background: var(--green); }
+  .dot.error { background: var(--hot); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .vm code { color: var(--dim); font-size: 11px; }
+
+  /* ---- transcript ---- */
+  main { max-width: 920px; margin: 0 auto; padding: 20px 16px 140px; }
+  .msg { margin: 16px 0; }
+  .who { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 4px; }
+  .you .bubble { border-left: 3px solid var(--amber); }
+  .pit .bubble { border-left: 3px solid var(--accent); }
+  .bubble {
+    background: var(--panel); border: 1px solid var(--line); border-left-width: 3px;
+    border-radius: 8px; padding: 12px 14px; white-space: pre-wrap; word-wrap: break-word;
+  }
+  .pit .bubble { font-family: inherit; }
+
+  /* ---- code + result panels (telemetry) ---- */
+  .telemetry { margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .telemetry .tab {
+    background: var(--panel-2); color: var(--accent); padding: 6px 12px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid var(--line); display: flex; justify-content: space-between;
+  }
+  pre.code {
+    margin: 0; padding: 12px 14px; background: #0b0f17; color: #cdd9e5;
+    overflow-x: auto; font-size: 12.5px; line-height: 1.45;
+  }
+  .result { padding: 10px 14px; background: var(--panel); }
+  .result pre { margin: 0; white-space: pre-wrap; color: #b7c4d4; font-size: 12.5px; }
+  .badge { font-size: 10px; padding: 1px 7px; border-radius: 999px; }
+  .badge.ok { background: rgba(33,208,122,.15); color: var(--green); }
+  .badge.err { background: rgba(255,30,30,.15); color: var(--hot); }
+  .chart { margin-top: 10px; }
+  .chart img { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+
+  .thinking { color: var(--dim); font-style: italic; padding: 6px 2px; }
+  .thinking .blink { animation: pulse 1.1s infinite; }
+
+  /* ---- composer (radio) ---- */
+  .composer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, transparent, var(--bg) 22%);
+    padding: 16px; }
+  .composer .inner {
+    max-width: 920px; margin: 0 auto; display: flex; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+  }
+  .composer input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--ink); font-family: var(--mono); font-size: 14px;
+  }
+  .composer button {
+    background: var(--hot); color: #fff; border: none; border-radius: 8px;
+    padding: 8px 18px; font-family: var(--mono); font-weight: 700; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 1px; font-size: 12px;
+  }
+  .composer button:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { color: var(--dim); font-size: 11px; text-align: center; margin-top: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+  .chip {
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--dim);
+    border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+  }
+  .chip:hover { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🏁 PIT<span class="red">WALL</span></div>
+  <div class="meta" id="model">—</div>
+  <div class="vm"><span class="dot" id="vmdot"></span><span id="vmtext">microVM: idle</span> <code id="vmendpoint"></code></div>
+</header>
+
+<main id="transcript">
+  <div class="msg pit">
+    <div class="who">📻 Race Engineer</div>
+    <div class="bubble">Box box — radio check. Ask me anything about the season: pace, strategy, pit stops, standings. I'll run the numbers in the car (a fresh Lambda MicroVM) and report back. Try a question below. 🏎️</div>
+  </div>
+</main>
+
+<div class="composer">
+  <div class="inner">
+    <input id="q" placeholder="e.g. Who had the fastest average pace in Miami?" autocomplete="off" />
+    <button id="send">Radio in</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="hint">Each question runs Claude-generated Python inside an isolated AWS Lambda MicroVM.</div>
+</div>
+
+<script>
+const SAMPLES = [
+  "Who had the fastest average pace in Miami?",
+  "What team does Hamilton drive for, and how many points has he scored?",
+  "Plot Hamilton's lap times in his last race and explain the pit stop.",
+  "Which driver gained the most positions vs their grid slot this season?",
+];
+
+const transcript = document.getElementById("transcript");
+const input = document.getElementById("q");
+const sendBtn = document.getElementById("send");
+const vmDot = document.getElementById("vmdot");
+const vmText = document.getElementById("vmtext");
+const vmEndpoint = document.getElementById("vmendpoint");
+
+// sample chips
+const chips = document.getElementById("chips");
+SAMPLES.forEach(s => {
+  const c = document.createElement("div");
+  c.className = "chip"; c.textContent = s;
+  c.onclick = () => { input.value = s; ask(); };
+  chips.appendChild(c);
+});
+
+fetch("/api/meta").then(r => r.json()).then(m => {
+  document.getElementById("model").textContent = m.model;
+}).catch(() => {});
+
+function el(cls, html) {
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  if (html !== undefined) d.innerHTML = html;
+  return d;
+}
+function escapeHtml(s) {
+  return (s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+function addMsg(who, label, text) {
+  const m = el("msg " + who);
+  m.appendChild(el("who", label));
+  m.appendChild(el("bubble", escapeHtml(text)));
+  transcript.appendChild(m);
+  scroll();
+  return m;
+}
+function scroll() { window.scrollTo(0, document.body.scrollHeight); }
+
+function setVM(state, data) {
+  vmDot.className = "dot " + state;
+  const labels = { launching: "launching…", running: "running", ready: "ready", error: "error" };
+  vmText.textContent = "microVM: " + (labels[state] || state);
+  if (data && data.endpoint) vmEndpoint.textContent = data.endpoint.split(".")[0] + "…";
+}
+
+let busy = false;
+function ask() {
+  const q = input.value.trim();
+  if (!q || busy) return;
+  busy = true; sendBtn.disabled = true; input.value = "";
+
+  addMsg("you", "🧑 You", q);
+  const thinking = el("msg pit");
+  thinking.appendChild(el("who", "📻 Race Engineer"));
+  thinking.appendChild(el("thinking", '<span class="blink">▸ on the pit wall, crunching the data…</span>'));
+  transcript.appendChild(thinking);
+  scroll();
+
+  const es = new EventSource("/api/ask?q=" + encodeURIComponent(q));
+  let answered = false;
+
+  es.addEventListener("vm", e => setVM(JSON.parse(e.data).state, JSON.parse(e.data)));
+
+  // Assistant narration in between tool calls — small dim line.
+  es.addEventListener("text", e => {
+    const text = JSON.parse(e.data).text || "";
+    if (!text.trim()) return;
+    const t = el("telemetry"); t.classList.add("narration");
+    const pre = document.createElement("pre"); pre.textContent = text;
+    t.appendChild(pre);
+    transcript.insertBefore(t, thinking);
+    scroll();
+  });
+
+  // A tool call about to run inside the microVM. Show the command / file we're
+  // about to Bash or Write — that's the "coding agent working" moment.
+  es.addEventListener("tool_use", e => {
+    const d = JSON.parse(e.data);
+    const name = d.name || "tool";
+    const inp = d.input || {};
+    let body = "";
+    let label = name;
+    if (name === "Bash") { body = inp.command || ""; label = "Bash — in the MicroVM"; }
+    else if (name === "Write" || name === "Edit") {
+      body = (inp.content || inp.new_string || "");
+      label = `${name} ${inp.file_path || ""} — in the MicroVM`;
+    } else if (name === "Read") { body = ""; label = `Read ${inp.file_path || ""}`; }
+    else { body = JSON.stringify(inp, null, 2); }
+
+    const t = el("telemetry");
+    t.appendChild(el("tab", `<span>▸ ${label}</span><span>telemetry</span>`));
+    if (body) {
+      const pre = el("pre code"); pre.classList.add("code"); pre.textContent = body;
+      t.appendChild(pre);
+    }
+    transcript.insertBefore(t, thinking);
+    scroll();
+  });
+
+  // The tool's output as Claude sees it.
+  es.addEventListener("tool_result", e => {
+    const r = JSON.parse(e.data);
+    const wrap = el("result");
+    const badge = r.is_error ? '<span class="badge err">err</span>' : '<span class="badge ok">ok</span>';
+    wrap.appendChild(el("tab", `<span>result</span>${badge}`));
+    const pre = document.createElement("pre");
+    pre.textContent = (r.content || "").trim() || "(no output)";
+    wrap.appendChild(pre);
+    transcript.insertBefore(wrap, thinking);
+    scroll();
+  });
+
+  // Charts or other image artifacts the agent produced.
+  es.addEventListener("artifact", e => {
+    const a = JSON.parse(e.data);
+    if (!a.data_uri) return;
+    const wrap = el("result");
+    wrap.appendChild(el("tab", `<span>${a.name || "artifact"}</span><span>chart</span>`));
+    const cd = el("chart");
+    const img = document.createElement("img"); img.src = a.data_uri; img.alt = a.name || "";
+    cd.appendChild(img); wrap.appendChild(cd);
+    transcript.insertBefore(wrap, thinking);
+    scroll();
+  });
+
+  es.addEventListener("answer", e => {
+    answered = true;
+    thinking.remove();
+    addMsg("pit", "📻 Race Engineer", JSON.parse(e.data).text);
+  });
+
+  es.addEventListener("error", e => {
+    let msg = "Connection error.";
+    try { msg = JSON.parse(e.data).message || msg; } catch (_) {}
+    thinking.remove();
+    addMsg("pit", "⚠️ Pit wall", msg);
+  });
+
+  es.addEventListener("done", () => {
+    es.close();
+    if (!answered) thinking.remove();
+    busy = false; sendBtn.disabled = false; input.focus();
+  });
+
+  es.onerror = () => {
+    // EventSource auto-reconnects on transient drops; only treat as fatal if not done.
+    if (busy) {
+      es.close();
+      if (!answered) { thinking.remove(); addMsg("pit", "⚠️ Pit wall", "Lost radio contact with the server."); }
+      busy = false; sendBtn.disabled = false;
+    }
+  };
+}
+
+sendBtn.onclick = ask;
+input.addEventListener("keydown", e => { if (e.key === "Enter") ask(); });
+input.focus();
+</script>
+</body>
+</html>
